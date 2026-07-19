@@ -89,9 +89,9 @@
 
 <div class="container">
     <h1>Soil Moisture Sensor Detector</h1>
-    <div id="status-message">กำลังโหลดโมเดลและเปิดกล้อง...</div>
+    <div id="status-message">กำลังโหลดโมเดลข้อมูล...</div>
     
-    <!-- กล่องโชว์ชนิด v1.2 หรือ v2.0 แบบเน้นๆ -->
+    <!-- กล่องโชว์ชนิดเซนเซอร์เด่นๆ -->
     <div id="result-display">ชนิดที่ตรวจพบ: กำลังเริ่มระบบสแกน...</div>
     
     <div id="webcam-container"></div>
@@ -102,7 +102,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
     
-    // โฟลเดอร์โมเดลบน GitHub ของคุณ[cite: 1]
+    // อ้างอิงโฟลเดอร์โมเดลบน GitHub ของคุณ[cite: 1]
     const URL = "./my_model/";
 
     let model, webcam, labelContainer, maxPredictions;
@@ -148,7 +148,7 @@
             predict();
 
         } catch (error) {
-            statusDiv.innerText = "❌ รอเปิดกล้อง: กรุณาคลิกรูปแม่กุญแจตรงแถบลิงก์ด้านบนเว็บ แล้วเลือก 'อนุญาต (Allow)' กล้องถ่ายรูปครับ";
+            statusDiv.innerText = "❌ เกิดข้อผิดพลาด: ไม่พบไฟล์ในโฟลเดอร์ my_model หรือสิทธิ์กล้องถูกปิด";
             statusDiv.style.color = "#f44336";
             console.error(error);
         }
@@ -172,22 +172,22 @@
             const probabilityValue = prediction[i].probability;
             const probabilityPercent = (probabilityValue * 100).toFixed(0) + "%";
             
-            // แสดงลิสต์รายการความน่าจะเป็นด้านล่าง
+            // แสดงลิสต์รายการเปอร์เซ็นต์ด้านล่าง
             labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <strong>${probabilityPercent}</strong>`;
 
-            // ตรวจหาตัวที่มีค่าความมั่นใจมากที่สุด
+            // ตรวจหาตัวที่มีค่าความแม่นยำมากที่สุด
             if (probabilityValue > highestProbability) {
                 highestProbability = probabilityValue;
                 highestType = className;
             }
         }
 
-        // นำชนิดที่ตรวจเจอที่มีความแม่นยำเกิน 50% มาแสดงที่กล่องข้อความด้านบน
+        // นำชื่อชนิดที่ตรวจเจอที่มีความแม่นยำเกิน 50% มาแสดงที่กล่องข้อความด้านบน
         const resultDisplay = document.getElementById("result-display");
         if (highestProbability > 0.5) {
             resultDisplay.innerHTML = `ตรวจพบชนิด: <br><span style="color: #0d47a1; font-size: 20px;">${highestType}</span> (${(highestProbability * 100).toFixed(0)}%)`;
         } else {
-            resultDisplay.innerHTML = `ชนิดที่ตรวจพบ: <span style="color: #757575;">กำลังค้นหาวัตถุ...</span>`;
+            resultDisplay.innerHTML = `ชนิดที่ตรวจพบ: <span style="color: #757575;">กำลังวิเคราะห์วัตถุ...</span>`;
         }
     }
 </script>
