@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -97,70 +96,65 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
-    // ⚠️ สำคัญมาก: นำลิงก์ที่แชร์จาก Teachable Machine ของคุณมาวางแทนที่ลิงก์ตัวอย่างข้างล่างนี้
-    const URL = "https://teachablemachine.withgoogle.com/models/v90412R-E/";
+    
+    // ⚠️ เปลี่ยนลิงก์ข้างล่างนี้ให้เป็นลิงก์โมเดลของคุณเองจาก Teachable Machine 
+    // ตัวอย่าง: "https://teachablemachine.withgoogle.com/models/xxxxxxxxx/"
+    const URL = "./my_model/";
 
     let model, webcam, labelContainer, maxPredictions;
     let predictInterval;
 
     async function init() {
-        try {
-            // ซ่อนปุ่มกดเมื่อเริ่มทำงานเพื่อป้องกันการกดซ้ำ
-            document.getElementById("start-btn").style.display = "none";
+        // ซ่อนปุ่มกดทันทีเพื่อป้องกันการกดเบิ้ล
+        document.getElementById("start-btn").style.display = "none";
 
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
 
-            // โหลด model และ metadata จากอินเทอร์เน็ต
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
+        // โหลดโมเดล
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
 
-            // ตั้งค่ากล้อง webcam
-            const flip = true; 
-            webcam = new tmImage.Webcam(200, 200, flip); 
-            await webcam.setup(); // ขอสิทธิ์เข้าถึงกล้อง
-            await webcam.play();
-            
-            // รันลูปให้ภาพเคลื่อนไหวลื่นไหลตามปกติ
-            window.requestAnimationFrame(loop);
+        // ตั้งค่ากล้องสตรีม
+        const flip = true; 
+        webcam = new tmImage.Webcam(200, 200, flip); 
+        await webcam.setup(); // ขอสิทธิ์ใช้งานกล้องจากบราวเซอร์
+        await webcam.play();
+        
+        // รันภาพเคลื่อนไหวของกล้อง
+        window.requestAnimationFrame(loop);
 
-            // แสดงผลกล้องบนจอ
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
-            
-            // เตรียมพื้นที่แสดงข้อความ
-            labelContainer = document.getElementById("label-container");
-            for (let i = 0; i < maxPredictions; i++) {
-                const div = document.createElement("div");
-                div.className = "prediction-row";
-                labelContainer.appendChild(div);
-            }
-
-            // สั่งให้ทำนายผล "ทุกๆ 3 วินาที" (3000 มิลลิวินาที)
-            predictInterval = setInterval(predict, 3000);
-            
-            // สั่งทำนายครั้งแรกทันที
-            predict();
-            
-        } catch (error) {
-            alert("ไม่สามารถเข้าถึงกล้องหรือโหลดโมเดลได้ กรุณาตรวจสอบสิทธิ์การใช้กล้อง หรือลิงก์โมเดลของคุณ");
-            document.getElementById("start-btn").style.display = "inline-block";
-            console.error(error);
+        // นำกล้องไปแสดงบนหน้าเว็บ
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        
+        // สร้างแถบแสดงผลลัพธ์
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) {
+            const div = document.createElement("div");
+            div.className = "prediction-row";
+            labelContainer.appendChild(div);
         }
+
+        // สั่งให้ฟังก์ชันทำนาย (Predict) ทำงานทุกๆ 3 วินาที (3000 มิลลิวินาที)
+        predictInterval = setInterval(predict, 3000);
+        
+        // ทำนายรอบแรกทันทีที่เปิดกล้องสำเร็จ
+        predict();
     }
 
     async function loop() {
-        webcam.update(); // อัปเดตเฟรมภาพกล้องให้เคลื่อนไหวต่อเนื่อง
+        webcam.update(); // เฟดภาพให้เคลื่อนไหวลื่นไหลต่อเนื่อง
         window.requestAnimationFrame(loop);
     }
 
     async function predict() {
-        // ประมวลผลจากภาพล่าสุดในกล้อง
+        // สั่งประมวลผลภาพถ่าย ณ วินาทีนั้น
         const prediction = await model.predict(webcam.canvas);
         for (let i = 0; i < maxPredictions; i++) {
             const className = prediction[i].className;
             const probability = (prediction[i].probability * 100).toFixed(0) + "%";
             
-            // อัปเดตข้อความผลลัพธ์
+            // แสดงชื่อคลาสพร้อมเปอร์เซ็นต์ความมั่นใจ
             labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <strong>${probability}</strong>`;
         }
     }
