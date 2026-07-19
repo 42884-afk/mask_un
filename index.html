@@ -3,173 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Classifier (3s Interval)</title>
+    <title>Teachable Machine Image Model</title>
     <style>
-        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
             margin: 0;
             padding: 20px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             min-height: 100vh;
+            color: #333;
         }
-        .app-card {
-            background: white;
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-            width: 100%;
-            max-width: 360px;
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
+            max-width: 400px;
+            width: 100%;
         }
-        h3 { margin: 0 0 20px 0; color: #1a1a1a; font-size: 20px; }
-        .btn-action {
-            background: #007aff;
+
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+
+        .btn-start {
+            background-color: #2ecc71;
             color: white;
             border: none;
-            padding: 14px;
-            width: 100%;
-            border-radius: 12px;
+            padding: 12px 30px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: bold;
+            border-radius: 25px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
+            margin-bottom: 20px;
+            width: 100%;
         }
-        .btn-action:hover { background: #0066cc; }
-        .btn-action:disabled { background: #aeaeae; cursor: not-allowed; }
-        
-        #video-viewer {
-            margin: 20px auto;
-            width: 240px;
-            height: 240px;
-            border-radius: 12px;
+
+        .btn-start:hover { background-color: #27ae60; }
+        .btn-start:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
+
+        #webcam-container {
+            margin: 20px 0;
+            border-radius: 10px;
             overflow: hidden;
-            background: #2c2c2e;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #8e8e93;
-            font-size: 14px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            display: inline-block;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            background-color: #eee;
+            line-height: 0;
         }
-        #video-viewer canvas {
+
+        #webcam-container canvas {
             display: block;
             width: 100% !important;
-            height: 100% !important;
-            object-fit: cover;
+            height: auto !important;
+            max-width: 250px;
         }
-        
-        .result-item {
-            background: #f8f9fa;
-            border-left: 4px solid #007aff;
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 6px;
+
+        #label-container {
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .label-row {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+            font-size: 15px;
             display: flex;
             justify-content: space-between;
-            font-size: 15px;
             font-weight: 500;
         }
-        .error-panel {
-            color: #ff3b30;
-            background: #ffe5e5;
-            padding: 12px;
+
+        .error-message {
+            color: #e74c3c;
+            background-color: #fde8e7;
+            padding: 15px;
             border-radius: 8px;
-            margin-top: 16px;
-            font-size: 13px;
+            margin-top: 15px;
+            font-size: 14px;
             text-align: left;
             display: none;
-            line-height: 1.4;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
 
-<div class="app-card">
-    <h3>ระบบตรวจจับวัตถุ (ทุก 3 วินาที)</h3>
-    <button type="button" id="ctrl-btn" class="btn-action" onclick="startApp()">เปิดใช้งานกล้อง</button>
+<div class="container">
+    <h2>Teachable Machine Image Model</h2>
+    <button class="btn-start" id="start-btn" type="button" onclick="init()">เริ่มทำงาน</button>
     
-    <div id="video-viewer">กล้องยังไม่พร้อมใช้งาน</div>
-    <div id="result-list"></div>
-    <div id="err-log" class="error-panel"></div>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <div id="error-container" class="error-message"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script>
-    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/h17gFZRJk/";[cite: 1]
-    let aiModel, streamWebcam, resultList, maxLabels;
-    let loopId, timerId;
+<script type="text/javascript">
+    // ⚠️ ตรวจสอบลิงก์โมเดลของคุณตรงนี้
+    const URL = "https://teachablemachine.withgoogle.com/models/h17gFZRJk/";[cite: 1]
 
-    async function startApp() {
-        const btn = document.getElementById("ctrl-btn");
-        const errLog = document.getElementById("err-log");
-        const viewer = document.getElementById("video-viewer");
+    let model, webcam, labelContainer, maxPredictions;
+    let predictInterval;
+
+    async function init() {
+        const errorContainer = document.getElementById("error-container");
+        const startBtn = document.getElementById("start-btn");
         
-        errLog.style.display = "none";
-        btn.disabled = true;
-        btn.innerText = "กำลังเชื่อมต่อโมเดล...";
+        errorContainer.style.display = 'none';
+        startBtn.disabled = true;
+        startBtn.innerText = "กำลังโหลดโมเดล AI...";
 
         try {
-            // 1. โหลดไฟล์โมเดล AI[cite: 1]
-            aiModel = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");[cite: 1]
-            maxLabels = aiModel.getTotalClasses();[cite: 1]
+            const modelURL = URL + "model.json";[cite: 1]
+            const metadataURL = URL + "metadata.json";[cite: 1]
 
-            // 2. เรียกเปิดกล้องเว็บแคม[cite: 1]
-            btn.innerText = "กำลังเริ่มต้นกล้อง...";
-            streamWebcam = new tmImage.Webcam(240, 240, true); 
+            // 1. โหลดโมเดล (จุดที่มักจะค้างถ้าลิงก์เสีย)[cite: 1]
+            model = await tmImage.load(modelURL, metadataURL);[cite: 1]
+            maxPredictions = model.getTotalClasses();[cite: 1]
+
+            // 2. ตั้งค่ากล้อง[cite: 1]
+            startBtn.innerText = "กำลังเปิดกล้อง...";
+            const flip = true;[cite: 1]
+            webcam = new tmImage.Webcam(250, 250, flip);
             
-            await streamWebcam.setup(); // เบราว์เซอร์จะขอสิทธิ์ตรงนี้[cite: 1]
-            await streamWebcam.play();[cite: 1]
+            await webcam.setup(); // ขอสิทธิ์ใช้งานกล้อง[cite: 1]
+            await webcam.play();[cite: 1]
             
-            // 3. แสดงวิดีโอเข้าพื้นที่รับภาพ
-            viewer.innerHTML = "";
-            viewer.appendChild(streamWebcam.canvas);[cite: 1]
+            // ซ่อนปุ่มเมื่อสำเร็จ
+            startBtn.style.display = 'none';
             
-            // 4. จัดเตรียมพื้นที่แสดงผลคำทำนาย
-            resultList = document.getElementById("result-list");
-            resultList.innerHTML = "";
-            for (let i = 0; i < maxLabels; i++) {[cite: 1]
-                const item = document.createElement("div");
-                item.className = "result-item";
-                resultList.appendChild(item);[cite: 1]
+            window.requestAnimationFrame(loop);
+
+            // แสดงกล้องบนหน้าจอ
+            document.getElementById("webcam-container").appendChild(webcam.canvas);[cite: 1]
+            labelContainer = document.getElementById("label-container");[cite: 1]
+            
+            for (let i = 0; i < maxPredictions; i++) {[cite: 1]
+                const row = document.createElement("div");
+                row.className = "label-row";
+                labelContainer.appendChild(row);[cite: 1]
             }
 
-            // ซ่อนปุ่มเปิดกล้องเมื่อทุกอย่างทำงานเรียบร้อย
-            btn.style.display = "none";
+            // ทำนายทุกๆ 3 วินาที
+            predictInterval = setInterval(predict, 3000);
+            predict();
 
-            // สั่งรันเฟรมเรตกล้องให้ภาพขยับเคลื่อนไหว
-            loopId = window.requestAnimationFrame(renderFrame);
+        } catch (error) {
+            console.error(error);
+            startBtn.disabled = false;
+            startBtn.innerText = "เริ่มทำงาน";
             
-            // สั่งทำนายทุกๆ 3 วินาที
-            timerId = setInterval(runPrediction, 3000);
-            runPrediction(); // สั่งรันครั้งแรกทันที
-
-        } catch (e) {
-            console.error(e);
-            btn.disabled = false;
-            btn.innerText = "ลองใหม่อีกครั้ง";
-            errLog.style.display = "block";
-            errLog.innerHTML = `<b>เกิดข้อผิดพลาด:</b> ไม่สามารถเข้าถึงกล้องถ่ายรูปได้<br><br><b>วิธีแก้:</b> โปรดเปิดโค้ดนี้ผ่านระบบเว็บเซิร์ฟเวอร์จำลอง (เช่น Live Server ใน VS Code) หรือนำไปทดสอบบนเว็บออนไลน์ที่มี HTTPS เช่น CodePen เท่านั้น การดับเบิ้ลคลิกไฟล์เปิดตรงๆ บนบราวเซอร์ทั่วไปจะติดบล็อคความปลอดภัยด้านการเข้าถึงกล้องครับ`;
+            errorContainer.style.display = 'block';
+            errorContainer.innerHTML = `
+                <strong>⚠️ ไม่สามารถเริ่มต้นระบบได้เนื่องจาก:</strong><br>
+                1. ลิงก์โมเดล <i>"${URL}"</i> อาจจะหมดอายุ ถูกลบ หรือพิมพ์ผิด<br>
+                2. เบราว์เซอร์ยังไม่ได้กด <b>"อนุญาต (Allow)"</b> ให้เข้าถึงกล้องถ่ายรูป<br>
+                3. มีแอปพลิเคชันอื่นกำลังดึงกล้องไปใช้งานอยู่
+            `;
         }
     }
 
-    async function renderFrame() {
-        streamWebcam.update();[cite: 1]
-        loopId = window.requestAnimationFrame(renderFrame);
+    async function loop() {
+        webcam.update();[cite: 1]
+        window.requestAnimationFrame(loop);
     }
 
-    async function runPrediction() {
-        if (!aiModel || !streamWebcam) return;
-        
-        const prediction = await aiModel.predict(streamWebcam.canvas);[cite: 1]
-        for (let i = 0; i < maxLabels; i++) {[cite: 1]
-            const labelName = prediction[i].className;
-            const score = (prediction[i].probability * 100).toFixed(0) + "%";
-            resultList.childNodes[i].innerHTML = `<span>${labelName}</span> <span>${score}</span>`;
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);[cite: 1]
+        for (let i = 0; i < maxPredictions; i++) {[cite: 1]
+            const className = prediction[i].className;
+            const probability = (prediction[i].probability * 100).toFixed(0) + "%";
+            labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <span>${probability}</span>`;
         }
     }
 </script>
