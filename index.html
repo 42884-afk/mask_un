@@ -89,6 +89,18 @@
             justify-content: space-between;
             font-weight: 500;
         }
+
+        .error-message {
+            color: #e74c3c;
+            background-color: #fde8e7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 14px;
+            text-align: left;
+            display: none;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -99,68 +111,79 @@
     
     <div id="webcam-container"></div>
     <div id="label-container"></div>
+    <div id="error-container" class="error-message"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
-    // ลิงก์โมเดลของคุณจาก Teachable Machine[cite: 1]
     const URL = "https://teachablemachine.withgoogle.com/models/h17gFZRJk/";[cite: 1]
 
     let model, webcam, labelContainer, maxPredictions;
     let predictInterval;
 
-    // โหลดโมเดลและตั้งค่ากล้อง[cite: 1]
     async function init() {
-        // ซ่อนปุ่มเริ่มงานหลังจากกดเพื่อป้องกันการกดซ้ำ
-        document.querySelector('.btn-start').style.display = 'none';
+        const errorContainer = document.getElementById("error-container");
+        errorContainer.style.display = 'none'; // ซ่อนข้อความแจ้งเตือนเก่าก่อน
 
-        const modelURL = URL + "model.json";[cite: 1]
-        const metadataURL = URL + "metadata.json";[cite: 1]
+        try {
+            const modelURL = URL + "model.json";[cite: 1]
+            const metadataURL = URL + "metadata.json";[cite: 1]
 
-        // โหลดโมเดลและเมทาดาตา[cite: 1]
-        model = await tmImage.load(modelURL, metadataURL);[cite: 1]
-        maxPredictions = model.getTotalClasses();[cite: 1]
+            // 1. โหลดโมเดล AI[cite: 1]
+            model = await tmImage.load(modelURL, metadataURL);[cite: 1]
+            maxPredictions = model.getTotalClasses();[cite: 1]
 
-        // ตั้งค่ากล้องเว็บแคม[cite: 1]
-        const flip = true; // เปิดโหมดกระจกเงา[cite: 1]
-        webcam = new tmImage.Webcam(250, 250, flip); // ปรับขนาดให้ใหญ่ขึ้นเล็กน้อยเพื่อความสวยงาม
-        await webcam.setup(); // ขอสิทธิ์เข้าถึงกล้อง[cite: 1]
-        await webcam.play();[cite: 1]
-        
-        // รันลูปเพื่ออัปเดตภาพจากกล้องให้เคลื่อนไหวลื่นไหล
-        window.requestAnimationFrame(loop);
+            // 2. ตั้งค่าและเปิดกล้อง[cite: 1]
+            const flip = true;[cite: 1]
+            webcam = new tmImage.Webcam(250, 250, flip);
+            
+            // รอเปิดกล้อง (ถ้าไม่ได้รับอนุญาตจะหลุดไปที่ข้อความแจ้งเตือนใน catch ข้างล่าง)[cite: 1]
+            await webcam.setup();[cite: 1]
+            await webcam.play();[cite: 1]
+            
+            // ซ่อนปุ่มเมื่อกล้องเปิดสำเร็จ
+            document.querySelector('.btn-start').style.display = 'none';
+            
+            window.requestAnimationFrame(loop);
 
-        // แสดงผลหน้าจอกล้อง
-        document.getElementById("webcam-container").appendChild(webcam.canvas);[cite: 1]
-        labelContainer = document.getElementById("label-container");[cite: 1]
-        
-        for (let i = 0; i < maxPredictions; i++) {[cite: 1]
-            const row = document.createElement("div");
-            row.className = "label-row";
-            labelContainer.appendChild(row);[cite: 1]
+            // 3. แสดงวิดีโอบนหน้าจอ[cite: 1]
+            document.getElementById("webcam-container").appendChild(webcam.canvas);[cite: 1]
+            labelContainer = document.getElementById("label-container");[cite: 1]
+            
+            for (let i = 0; i < maxPredictions; i++) {[cite: 1]
+                const row = document.createElement("div");
+                row.className = "label-row";
+                labelContainer.appendChild(row);[cite: 1]
+            }
+
+            // 4. ตั้งเวลาทำนายทุกๆ 3 วินาที
+            predictInterval = setInterval(predict, 3000);
+            predict();
+
+        } catch (error) {
+            console.error(error);
+            // แสดงข้อความเตือนเมื่อเปิดกล้องไม่ได้
+            errorContainer.innerHTML = `
+                <strong>⚠️ เกิดข้อผิดพลาดในการเปิดกล้อง:</strong><br>
+                1. กรุณากด <b>"อนุญาต (Allow)"</b> ให้เว็บเข้าถึงกล้องถ่ายรูป<br>
+                2. ตรวจสอบว่าเปิดไฟล์ผ่านระบบความปลอดภัย (เช่น localhost หรือ https://) หรือยัง<br>
+                3. ตรวจสอบว่ามีแอปอื่น (เช่น Zoom, Line) เปิดใช้งานกล้องอยู่หรือไม่
+            `;
+            errorContainer.style.display = 'block';
         }
-
-        // สั่งให้ฟังก์ชันทำนายผล (Predict) ทำงานทุกๆ 3 วินาที (3000 มิลลิวินาที)
-        predictInterval = setInterval(predict, 3000);
-        
-        // เรียกใช้ครั้งแรกทันทีเพื่อให้มีผลลัพธ์ขึ้นมาก่อนไม่ต้องรอครบ 3 วินาทีแรก
-        predict();
     }
 
     async function loop() {
-        webcam.update(); // อัปเดตเฟรมภาพของกล้องให้เป็นปัจจุบันอยู่ตลอดเวลา[cite: 1]
+        webcam.update();[cite: 1]
         window.requestAnimationFrame(loop);
     }
 
-    // ประมวลผลภาพถ่ายจากกล้องเพื่อทำนาย[cite: 1]
     async function predict() {
         const prediction = await model.predict(webcam.canvas);[cite: 1]
         for (let i = 0; i < maxPredictions; i++) {[cite: 1]
             const className = prediction[i].className;
-            const probability = (prediction[i].probability * 100).toFixed(0) + "%"; // เปลี่ยนเป็นเปอร์เซ็นต์ให้อ่านง่าย
-            
-            // ใส่ข้อมูลแยกชื่อคลาสและผลลัพธ์เพื่อความสวยงาม
+            const probability = (prediction[i].probability * 100).toFixed(0) + "%";
             labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <span>${probability}</span>`;
         }
     }
