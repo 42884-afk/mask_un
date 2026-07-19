@@ -54,21 +54,10 @@
             justify-content: center;
         }
 
-        #label-container {
-            margin-top: 20px;
-            text-align: left;
-        }
-
-        .prediction-row {
-            background-color: #f9f9f9;
-            padding: 10px 15px;
-            margin: 5px 0;
-            border-radius: 8px;
-            border-left: 5px solid #2196F3;
-            font-size: 15px;
-            color: #555;
-            display: flex;
-            justify-content: space-between;
+        #webcam-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
     </style>
 </head>
@@ -76,80 +65,36 @@
 
 <div class="container">
     <h1>Teachable Machine Image Model</h1>
-    <div id="status-message">กำลังโหลดโมเดลและเปิดกล้อง...</div>
-    <div id="webcam-container"></div>
-    <div id="label-container"></div>
+    <div id="status-message">กำลังขอสิทธิ์เปิดกล้อง...</div>
+    <div id="webcam-container">
+        <!-- สร้างแท็ก video มารองรับสตรีมกล้องโดยตรง ไม่ต้องผ่านสคริปต์ซับซ้อน -->
+        <video id="webcam" autoplay playsinline muted></video>
+    </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
-    
-    // ⚠️ แก้ตรงนี้: เอาลิงก์แชร์จากเว็บ Teachable Machine ของคุณมาวางแทนที่ลิงก์นี้
-    // วิธีเอาลิงก์: กด Export Model ในเว็บ Teachable Machine -> เลือก Upload (shareable link) -> ก๊อปปี้ลิงก์มาวาง
-    const URL = "https://teachablemachine.withgoogle.com/models/เปลี่ยนเป็นลิงก์ของคุณที่นี่/";
-
-    let model, webcam, labelContainer, maxPredictions;
-    let predictInterval;
-
     window.onload = function() {
-        init();
+        startCamera();
     };
 
-    async function init() {
+    async function startCamera() {
         const statusDiv = document.getElementById("status-message");
-        
+        const video = document.getElementById("webcam");
+
         try {
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
-
-            // โหลดโมเดล
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-
-            // ตั้งค่ากล้อง
-            const flip = true; 
-            webcam = new tmImage.Webcam(200, 200, flip); 
-            await webcam.setup(); 
-            await webcam.play();
+            // สั่งเปิดกล้องของอุปกรณ์โดยตรงผ่านคำสั่งพื้นฐานของบราวเซอร์
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 200, height: 200 } 
+            });
             
-            statusDiv.innerText = "ระบบกำลังทำงาน (วิเคราะห์ทุก 3 วินาที)";
+            video.srcObject = stream;
+            statusDiv.innerText = "กล้องทำงานสำเร็จแล้ว! (กำลังรอใส่โมเดลวิเคราะห์)";
             statusDiv.style.color = "#4CAF50";
 
-            window.requestAnimationFrame(loop);
-
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
-            
-            labelContainer = document.getElementById("label-container");
-            for (let i = 0; i < maxPredictions; i++) {
-                const div = document.createElement("div");
-                div.className = "prediction-row";
-                labelContainer.appendChild(div);
-            }
-
-            // ทำนายทุกๆ 3 วินาที
-            predictInterval = setInterval(predict, 3000);
-            predict();
-
         } catch (error) {
-            statusDiv.innerText = "❌ โหลดไม่สำเร็จ: กรุณาตรวจสอบลิงก์ URL โมเดลของคุณในโค้ดบรรทัดที่ 71 หรือกดอนุญาตให้เว็บเข้าถึงกล้อง";
+            statusDiv.innerText = "❌ เปิดกล้องไม่สำเร็จ: กรุณากดไอคอนแม่กุญแจหน้า URL เพื่ออนุญาตให้เว็บเข้าถึงกล้อง";
             statusDiv.style.color = "#f44336";
             console.error(error);
-        }
-    }
-
-    async function loop() {
-        webcam.update(); 
-        window.requestAnimationFrame(loop);
-    }
-
-    async function predict() {
-        if (!model || !webcam) return;
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const className = prediction[i].className;
-            const probability = (prediction[i].probability * 100).toFixed(0) + "%";
-            labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <strong>${probability}</strong>`;
         }
     }
 </script>
