@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teachable Machine Image Model</title>
+    <title>Soil Moisture Sensor Detector</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -23,14 +23,14 @@
             border-radius: 15px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            max-width: 400px;
+            max-width: 440px;
             width: 100%;
         }
 
         h1 {
             color: #333;
-            margin-bottom: 20px;
-            font-size: 24px;
+            margin-bottom: 10px;
+            font-size: 22px;
         }
 
         #status-message {
@@ -40,13 +40,26 @@
             font-style: italic;
         }
 
+        /* กล่องแสดงผลชนิดเซนเซอร์ที่ตรวจพบ */
+        #result-display {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #a5d6a7;
+            word-break: break-all;
+        }
+
         #webcam-container {
             margin: 20px auto;
             border: 4px solid #ddd;
             border-radius: 10px;
             overflow: hidden;
-            width: 200px;
-            height: 200px;
+            width: 220px;
+            height: 220px;
             background-color: #eee;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
             display: flex;
@@ -54,47 +67,127 @@
             justify-content: center;
         }
 
-        #webcam-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        #label-container {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .prediction-row {
+            background-color: #f9f9f9;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 5px solid #4CAF50;
+            font-size: 14px;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Teachable Machine Image Model</h1>
-    <div id="status-message">กำลังขอสิทธิ์เปิดกล้อง...</div>
-    <div id="webcam-container">
-        <!-- สร้างแท็ก video มารองรับสตรีมกล้องโดยตรง ไม่ต้องผ่านสคริปต์ซับซ้อน -->
-        <video id="webcam" autoplay playsinline muted></video>
-    </div>
+    <h1>Soil Moisture Sensor Detector</h1>
+    <div id="status-message">กำลังโหลดโมเดลและเปิดกล้อง...</div>
+    
+    <!-- กล่องโชว์ชนิด v1.2 หรือ v2.0 แบบเน้นๆ -->
+    <div id="result-display">ชนิดที่ตรวจพบ: กำลังเริ่มระบบสแกน...</div>
+    
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
+    
+    // โฟลเดอร์โมเดลบน GitHub ของคุณ[cite: 1]
+    const URL = "./my_model/";
+
+    let model, webcam, labelContainer, maxPredictions;
+    let predictInterval;
+
     window.onload = function() {
-        startCamera();
+        init();
     };
 
-    async function startCamera() {
+    async function init() {
         const statusDiv = document.getElementById("status-message");
-        const video = document.getElementById("webcam");
-
+        
         try {
-            // สั่งเปิดกล้องของอุปกรณ์โดยตรงผ่านคำสั่งพื้นฐานของบราวเซอร์
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 200, height: 200 } 
-            });
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // โหลดโมเดล[cite: 1]
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // ตั้งค่ากล้อง[cite: 1]
+            const flip = true; 
+            webcam = new tmImage.Webcam(220, 220, flip); 
+            await webcam.setup(); 
+            await webcam.play();
             
-            video.srcObject = stream;
-            statusDiv.innerText = "กล้องทำงานสำเร็จแล้ว! (กำลังรอใส่โมเดลวิเคราะห์)";
+            statusDiv.innerText = "ระบบวิเคราะห์อัตโนมัติทำงานแล้ว (สแกนทุก 3 วินาที)";
             statusDiv.style.color = "#4CAF50";
 
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                const div = document.createElement("div");
+                div.className = "prediction-row";
+                labelContainer.appendChild(div);
+            }
+
+            // สั่งทำนายผลทุกๆ 3 วินาที (3000 มิลลิวินาที)
+            predictInterval = setInterval(predict, 3000);
+            predict();
+
         } catch (error) {
-            statusDiv.innerText = "❌ เปิดกล้องไม่สำเร็จ: กรุณากดไอคอนแม่กุญแจหน้า URL เพื่ออนุญาตให้เว็บเข้าถึงกล้อง";
+            statusDiv.innerText = "❌ รอเปิดกล้อง: กรุณาคลิกรูปแม่กุญแจตรงแถบลิงก์ด้านบนเว็บ แล้วเลือก 'อนุญาต (Allow)' กล้องถ่ายรูปครับ";
             statusDiv.style.color = "#f44336";
             console.error(error);
+        }
+    }
+
+    async function loop() {
+        webcam.update(); 
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        if (!model || !webcam) return;
+        
+        const prediction = await model.predict(webcam.canvas);
+        
+        let highestType = "";
+        let highestProbability = 0;
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const className = prediction[i].className;
+            const probabilityValue = prediction[i].probability;
+            const probabilityPercent = (probabilityValue * 100).toFixed(0) + "%";
+            
+            // แสดงลิสต์รายการความน่าจะเป็นด้านล่าง
+            labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <strong>${probabilityPercent}</strong>`;
+
+            // ตรวจหาตัวที่มีค่าความมั่นใจมากที่สุด
+            if (probabilityValue > highestProbability) {
+                highestProbability = probabilityValue;
+                highestType = className;
+            }
+        }
+
+        // นำชนิดที่ตรวจเจอที่มีความแม่นยำเกิน 50% มาแสดงที่กล่องข้อความด้านบน
+        const resultDisplay = document.getElementById("result-display");
+        if (highestProbability > 0.5) {
+            resultDisplay.innerHTML = `ตรวจพบชนิด: <br><span style="color: #0d47a1; font-size: 20px;">${highestType}</span> (${(highestProbability * 100).toFixed(0)}%)`;
+        } else {
+            resultDisplay.innerHTML = `ชนิดที่ตรวจพบ: <span style="color: #757575;">กำลังค้นหาวัตถุ...</span>`;
         }
     }
 </script>
