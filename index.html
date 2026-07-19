@@ -34,7 +34,7 @@
         }
 
         #status-message {
-            color: #666;
+            color: #ff9800;
             font-size: 14px;
             margin-bottom: 15px;
             font-style: italic;
@@ -49,6 +49,9 @@
             height: 200px;
             background-color: #eee;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #label-container {
@@ -82,14 +85,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
     
-    // ⚠️ นำลิงก์แชร์จากเว็บ Teachable Machine ของคุณมาวางตรงนี้ได้เลยครับ 
-    // หากทดสอบใน GitHub แนะนำให้ใช้ลิงก์ URL แบบเต็มขึ้นต้นด้วย https:// เสมอ
-    const URL = "https://teachablemachine.withgoogle.com/models/v90412R-E/";
+    // ⚠️ แก้ตรงนี้: เอาลิงก์แชร์จากเว็บ Teachable Machine ของคุณมาวางแทนที่ลิงก์นี้
+    // วิธีเอาลิงก์: กด Export Model ในเว็บ Teachable Machine -> เลือก Upload (shareable link) -> ก๊อปปี้ลิงก์มาวาง
+    const URL = "https://teachablemachine.withgoogle.com/models/เปลี่ยนเป็นลิงก์ของคุณที่นี่/";
 
     let model, webcam, labelContainer, maxPredictions;
     let predictInterval;
 
-    // ทำงานอัตโนมัติเมื่อเปิดหน้าเว็บเสร็จ
     window.onload = function() {
         init();
     };
@@ -105,23 +107,19 @@
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // ตั้งค่าและเปิดใช้งานกล้อง
+            // ตั้งค่ากล้อง
             const flip = true; 
             webcam = new tmImage.Webcam(200, 200, flip); 
-            await webcam.setup(); // บราวเซอร์จะขอสิทธิ์เข้าถึงกล้องตรงนี้
+            await webcam.setup(); 
             await webcam.play();
             
-            // เปลี่ยนข้อความสถานะเมื่อโหลดเสร็จ
             statusDiv.innerText = "ระบบกำลังทำงาน (วิเคราะห์ทุก 3 วินาที)";
             statusDiv.style.color = "#4CAF50";
 
-            // รันสตรีมภาพเคลื่อนไหวให้กล้องลื่นไหล
             window.requestAnimationFrame(loop);
 
-            // แสดงหน้าจอกล้อง
             document.getElementById("webcam-container").appendChild(webcam.canvas);
             
-            // เตรียมหน้าจอแสดงผลลัพธ์
             labelContainer = document.getElementById("label-container");
             for (let i = 0; i < maxPredictions; i++) {
                 const div = document.createElement("div");
@@ -129,33 +127,28 @@
                 labelContainer.appendChild(div);
             }
 
-            // ตั้งเวลาให้ประมวลผลคำทำนายทุกๆ 3 วินาที (3000 มิลลิวินาที)
+            // ทำนายทุกๆ 3 วินาที
             predictInterval = setInterval(predict, 3000);
-            
-            // สั่งทำนายครั้งแรกทันที
             predict();
 
         } catch (error) {
-            statusDiv.innerText = "เกิดข้อผิดพลาด: ไม่สามารถเข้าถึงกล้อง หรือลิงก์โมเดลไม่ถูกต้อง";
+            statusDiv.innerText = "❌ โหลดไม่สำเร็จ: กรุณาตรวจสอบลิงก์ URL โมเดลของคุณในโค้ดบรรทัดที่ 71 หรือกดอนุญาตให้เว็บเข้าถึงกล้อง";
             statusDiv.style.color = "#f44336";
             console.error(error);
         }
     }
 
     async function loop() {
-        webcam.update(); // เฟดภาพในกล้องให้เคลื่อนไหว
+        webcam.update(); 
         window.requestAnimationFrame(loop);
     }
 
     async function predict() {
         if (!model || !webcam) return;
-        
-        // วิเคราะห์ภาพถ่ายจากกล้อง ณ เสี้ยววินาทีนั้น
         const prediction = await model.predict(webcam.canvas);
         for (let i = 0; i < maxPredictions; i++) {
             const className = prediction[i].className;
             const probability = (prediction[i].probability * 100).toFixed(0) + "%";
-            
             labelContainer.childNodes[i].innerHTML = `<span>${className}</span> <strong>${probability}</strong>`;
         }
     }
